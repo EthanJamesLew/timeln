@@ -2,6 +2,8 @@
 name = "timeln"
 version = "0.1.0"
 edition = "2021"
+license = "GPLv3"
+description = "annotate your stdout with timing information"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
