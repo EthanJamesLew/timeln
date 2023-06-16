@@ -17,10 +17,8 @@
 //!     Use the `-r` or `--regex` option followed by a regex pattern to time and print only the lines that match the pattern.
 //!
 //! Example:
-//!     echo "Hello\nWorld" | time-reader
-//!     echo "Hello\nWorld" | time-reader -c
-//!     echo "Hello\nWorld" | time-reader -r "World"
-//!     echo "Hello\nWorld" | time-reader -c -r "World"
+//!     python your_script.py | timeln -c
+//!     python your_script.py | timeln -r "your_regex_pattern"
 //!
 //! The script prints the elapsed time and the delta time between lines or regex matches in the format "[time: XX.XX s, delta: XX.XX s]".
 //! If colorization is enabled, the timing information is printed in green and the matched strings are printed in red.
