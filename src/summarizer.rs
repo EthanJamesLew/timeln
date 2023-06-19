@@ -1,4 +1,5 @@
 use std::time::Duration;
+use colored::Colorize;
 use crate::time_format::TimeFormat;
 
 /// A trait for objects that can summarize a process by providing a summary string
@@ -19,17 +20,25 @@ pub trait Summarizer: Sync + Send {
 }
 
 /// A simple implementation of the `Summarizer` trait.
-pub struct SimpleSummarizer;
+pub struct SimpleSummarizer {
+    pub color: bool,
+}
 
 impl Summarizer for SimpleSummarizer {
     fn summarize(&self, total_lines: usize, total_time: &Duration, time_format: &dyn TimeFormat) -> String {
         let time_str = time_format.format_duration(total_time);
-        format!("Processed {} lines in {}", total_lines, time_str)
+        if self.color {
+            format!("Processed {} lines in {}", total_lines, time_str).green().to_string()
+        } else {
+            format!("Processed {} lines in {}", total_lines, time_str)
+        }
     }
 }
 
 /// A detailed implementation of the `Summarizer` trait that also provides an average time per line.
-pub struct DetailedSummarizer;
+pub struct DetailedSummarizer{
+    pub color: bool,
+}
 
 impl Summarizer for DetailedSummarizer {
     fn summarize(&self, total_lines: usize, total_time: &Duration, time_format: &dyn TimeFormat) -> String {
@@ -42,7 +51,11 @@ impl Summarizer for DetailedSummarizer {
             Duration::default()
         };
         let avg_time_str = time_format.format_duration(&avg_time_per_line);
-        format!("Processed {} lines in {}. Average time per line: {}", total_lines, time_str, avg_time_str)
+        if self.color {
+            format!("Processed {} lines in {}. Average time per line: {}", total_lines, time_str, avg_time_str).green().to_string()
+        } else {
+            format!("Processed {} lines in {}. Average time per line: {}", total_lines, time_str, avg_time_str)
+        }
     }
 }
 
@@ -54,7 +67,7 @@ mod tests {
 
     #[test]
     fn test_simple_summarizer() {
-        let summarizer: Box<dyn Summarizer> = Box::new(SimpleSummarizer);
+        let summarizer: Box<dyn Summarizer> = Box::new(SimpleSummarizer { color: false });
         let time_format: Box<dyn TimeFormat> = Box::new(SecondsFormat);
         let total_lines = 100;
         let total_time = Duration::new(30, 0); // 30 seconds
@@ -64,7 +77,7 @@ mod tests {
 
     #[test]
     fn test_detailed_summarizer() {
-        let summarizer: Box<dyn Summarizer> = Box::new(DetailedSummarizer);
+        let summarizer: Box<dyn Summarizer> = Box::new(DetailedSummarizer { color: false });
         let time_format: Box<dyn TimeFormat> = Box::new(SecondsFormat);
         let total_lines = 100;
         let total_time = Duration::new(100, 0); // 100 seconds

@@ -79,7 +79,7 @@ fn main() -> Result<(), CustomError> {
         None
     };
 
-    let summarizer: Arc<Box<dyn Summarizer>> = Arc::new(Box::new(SimpleSummarizer)); // or DetailedSummarizer
+    let summarizer: Arc<Box<dyn Summarizer>> = Arc::new(Box::new(SimpleSummarizer {color: opt.color})); // or DetailedSummarizer
 
     let total_lines = Arc::new(Mutex::new(0));
 
