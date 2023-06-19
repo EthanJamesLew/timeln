@@ -105,16 +105,22 @@ fn main() -> Result<(), CustomError> {
         *total_lines_guard += 1;
         
         let now = Instant::now();
-        let delta = now.duration_since(last_time);
-        last_time = now;
-
+        
         if let Some(re) = &regex {
             for cap in re.captures_iter(&buffer) {
+                let delta = now.duration_since(last_time);
+                last_time = now;
+
                 let line = String::from(buffer.trim().replace(&cap[0], &format!("{}", &cap[0].red())));
                 let output = annotator.format_line(&line, &now.duration_since(start_time), &delta);
                 println!("{}", output);
+                
+                break;
             }
         } else {
+            let delta = now.duration_since(last_time);
+            last_time = now;
+            
             let line = String::from(buffer.trim());
             let output = annotator.format_line(&line, &now.duration_since(start_time), &delta);
             println!("{}", output);
