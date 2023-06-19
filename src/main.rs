@@ -82,15 +82,18 @@ fn main() -> Result<(), CustomError> {
     let summarizer: Arc<Box<dyn Summarizer>> = Arc::new(Box::new(SimpleSummarizer {color: opt.color})); // or DetailedSummarizer
 
     let total_lines = Arc::new(Mutex::new(0));
+    let total_matches = Arc::new(Mutex::new(0));
 
     let total_lines_ctrlc = total_lines.clone();
+    let total_matches_ctrlc = total_matches.clone();
     let summarizer_ctrlc = summarizer.clone();
     let start_time_ctrlc = start_time.clone();
     let time_format_ctrlc = time_format.clone();
 
     ctrlc::set_handler(move || {
         let total_lines = total_lines_ctrlc.lock().unwrap();
-        println!("{}", summarizer_ctrlc.summarize(*total_lines, &Instant::now().duration_since(start_time_ctrlc), &time_format_ctrlc));
+        let total_matches= total_matches_ctrlc.lock().unwrap();
+        println!("{}", summarizer_ctrlc.summarize(*total_lines, *total_matches, &Instant::now().duration_since(start_time_ctrlc), &time_format_ctrlc));
         std::process::exit(0);
     }).expect("Error setting Ctrl-C handler");
 
@@ -112,6 +115,9 @@ fn main() -> Result<(), CustomError> {
                     let delta = now.duration_since(last_time);
                     last_time = now;
 
+                    let mut total_matches_guard = total_matches.lock().unwrap();
+                    *total_matches_guard += 1;
+                    
                     let line = String::from(buffer.trim().replace(&cap[0], &format!("{}", &cap[0].red())));
                     let output = annotator.format_line(&line, &now.duration_since(start_time), &delta);
                     println!("{}", output);
@@ -130,7 +136,8 @@ fn main() -> Result<(), CustomError> {
 
     let now = Instant::now();
     let total_lines_final = total_lines.lock().unwrap();
-    println!("{}", summarizer.summarize(*total_lines_final, &now.duration_since(start_time), &time_format));
+    let total_matches_final= total_matches.lock().unwrap();
+    println!("{}", summarizer.summarize(*total_lines_final, *total_matches_final, &now.duration_since(start_time), &time_format));
 
     Ok(())
 }
