@@ -33,9 +33,12 @@ use std::sync::{Arc, Mutex};
 mod annotator;
 mod time_formatter;
 mod summarizer;
+mod plotter;
+
 use crate::annotator::{TimelnAnnotation, SimpleAnnotator};
 use crate::time_formatter::{SecondsFormat};
 use crate::summarizer::{Summarizer, SimpleSummarizer};
+use crate::plotter::plot_deltas;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "timeln", about = "A utility that times lines/regex from stdin.")]
@@ -44,6 +47,8 @@ struct Opt {
     color: bool,
     #[structopt(short = "r", long = "regex")]
     regex: Option<String>,
+    #[structopt(short = "p", long = "plot")]
+    plot: bool,
 }
 
 #[derive(Debug)]
@@ -97,6 +102,8 @@ fn main() -> Result<(), CustomError> {
         std::process::exit(0);
     }).expect("Error setting Ctrl-C handler");
 
+    let mut deltas = Vec::new();
+
     let mut stdin = stdin.lock();
     loop {
         buffer.clear();
@@ -115,6 +122,8 @@ fn main() -> Result<(), CustomError> {
                     let delta = now.duration_since(last_time);
                     last_time = now;
 
+                    deltas.push(delta);
+
                     let mut total_matches_guard = total_matches.lock().unwrap();
                     *total_matches_guard += 1;
                     
@@ -127,6 +136,8 @@ fn main() -> Result<(), CustomError> {
         } else {
             let delta = now.duration_since(last_time);
             last_time = now;
+
+            deltas.push(delta);
             
             let line = String::from(buffer.trim());
             let output = annotator.format_line(&line, &now.duration_since(start_time), &delta);
@@ -138,6 +149,12 @@ fn main() -> Result<(), CustomError> {
     let total_lines_final = total_lines.lock().unwrap();
     let total_matches_final= total_matches.lock().unwrap();
     println!("{}", summarizer.summarize(*total_lines_final, *total_matches_final, &now.duration_since(start_time), &time_format));
+
+    if opt.plot {
+        // Convert durations to f64 values in seconds
+        let deltas: Vec<f64> = deltas.iter().map(|&dur| dur.as_secs_f64()).collect();
+        plot_deltas(&deltas, "deltas.png").unwrap();
+    }
 
     Ok(())
 }
