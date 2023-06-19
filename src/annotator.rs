@@ -1,4 +1,4 @@
-use crate::time_format::{TimeFormat};
+use crate::time_formatter::{TimeFormat};
 use std::time::Duration;
 
 use colored::Colorize;
@@ -65,7 +65,7 @@ impl TimelnAnnotation for UnicodeAnnotator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::time_format::SecondsFormat;
+    use crate::time_formatter::SecondsFormat;
 
     #[test]
     fn test_simple_annotation() {

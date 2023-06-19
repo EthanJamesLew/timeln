@@ -30,11 +30,11 @@ use regex::Regex;
 
 use std::sync::{Arc, Mutex};
 
-mod timeln_annotation;
-mod time_format;
+mod annotator;
+mod time_formatter;
 mod summarizer;
-use crate::timeln_annotation::{TimelnAnnotation, SimpleAnnotator};
-use crate::time_format::{SecondsFormat};
+use crate::annotator::{TimelnAnnotation, SimpleAnnotator};
+use crate::time_formatter::{SecondsFormat};
 use crate::summarizer::{Summarizer, SimpleSummarizer};
 
 #[derive(Debug, StructOpt)]
