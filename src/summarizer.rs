@@ -1,10 +1,24 @@
 use std::time::Duration;
 use crate::time_format::TimeFormat;
 
+/// A trait for objects that can summarize a process by providing a summary string
+/// based on total lines processed, total time taken, and a specified time format.
 pub trait Summarizer: Sync + Send {
+    /// Summarize the total lines processed and the total time taken in the specified format.
+    ///
+    /// # Arguments
+    ///
+    /// * `total_lines` - The total number of lines processed.
+    /// * `total_time` - The total time taken to process lines.
+    /// * `time_format` - The format to display time.
+    ///
+    /// # Returns
+    ///
+    /// A string containing the summary of the process.
     fn summarize(&self, total_lines: usize, total_time: &Duration, time_format: &dyn TimeFormat) -> String;
 }
 
+/// A simple implementation of the `Summarizer` trait.
 pub struct SimpleSummarizer;
 
 impl Summarizer for SimpleSummarizer {
@@ -14,6 +28,7 @@ impl Summarizer for SimpleSummarizer {
     }
 }
 
+/// A detailed implementation of the `Summarizer` trait that also provides an average time per line.
 pub struct DetailedSummarizer;
 
 impl Summarizer for DetailedSummarizer {
