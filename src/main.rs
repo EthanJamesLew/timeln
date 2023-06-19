@@ -23,12 +23,13 @@
 //! The script prints the elapsed time and the delta time between lines or regex matches in the format "[time: XX.XX s, delta: XX.XX s]".
 //! If colorization is enabled, the timing information is printed in green and the matched strings are printed in red.
 use std::io::{self, BufRead};
-use std::time::{Instant};
+use std::time::{Instant, Duration};
 use colored::*;
 use structopt::StructOpt;
 use regex::Regex;
 
 use std::sync::{Arc, Mutex};
+use std::sync::mpsc;
 
 mod annotator;
 mod time_formatter;
@@ -95,14 +96,22 @@ fn main() -> Result<(), CustomError> {
     let start_time_ctrlc = start_time.clone();
     let time_format_ctrlc = time_format.clone();
 
+    let (tx, rx) = mpsc::channel::<Duration>();
+    let rx = Arc::new(Mutex::new(rx));
+
+    let rx_ctrlc = Arc::clone(&rx);
+
     ctrlc::set_handler(move || {
         let total_lines = total_lines_ctrlc.lock().unwrap();
         let total_matches= total_matches_ctrlc.lock().unwrap();
         println!("{}", summarizer_ctrlc.summarize(*total_lines, *total_matches, &Instant::now().duration_since(start_time_ctrlc), &time_format_ctrlc));
+        
+        let rx_lock = rx_ctrlc.lock().unwrap();
+        let durations: Vec<_> = rx_lock.try_iter().collect();
+        let deltas: Vec<f64> = durations.iter().map(|&dur| dur.as_secs_f64()).collect();
+        plot_deltas(&deltas, "deltas.png").unwrap();
         std::process::exit(0);
     }).expect("Error setting Ctrl-C handler");
-
-    let mut deltas = Vec::new();
 
     let mut stdin = stdin.lock();
     loop {
@@ -122,7 +131,7 @@ fn main() -> Result<(), CustomError> {
                     let delta = now.duration_since(last_time);
                     last_time = now;
 
-                    deltas.push(delta);
+                    tx.send(delta).unwrap();
 
                     let mut total_matches_guard = total_matches.lock().unwrap();
                     *total_matches_guard += 1;
@@ -137,7 +146,7 @@ fn main() -> Result<(), CustomError> {
             let delta = now.duration_since(last_time);
             last_time = now;
 
-            deltas.push(delta);
+            tx.send(delta).unwrap();
             
             let line = String::from(buffer.trim());
             let output = annotator.format_line(&line, &now.duration_since(start_time), &delta);
@@ -152,7 +161,8 @@ fn main() -> Result<(), CustomError> {
 
     if opt.plot {
         // Convert durations to f64 values in seconds
-        let deltas: Vec<f64> = deltas.iter().map(|&dur| dur.as_secs_f64()).collect();
+        let durations: Vec<_> = rx.lock().unwrap().try_iter().collect();
+        let deltas: Vec<f64> = durations.iter().map(|&dur| dur.as_secs_f64()).collect();
         plot_deltas(&deltas, "deltas.png").unwrap();
     }
 
