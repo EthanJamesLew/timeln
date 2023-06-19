@@ -34,6 +34,7 @@ impl Summarizer for DetailedSummarizer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::time_format::SecondsFormat;
     use std::time::Duration;
 
     #[test]
