@@ -22,15 +22,23 @@
 //!
 //! The script prints the elapsed time and the delta time between lines or regex matches in the format "[time: XX.XX s, delta: XX.XX s]".
 //! If colorization is enabled, the timing information is printed in green and the matched strings are printed in red.
-
 use std::io::{self, BufRead};
-use std::time::{Instant, Duration};
+use std::time::{Instant};
 use colored::*;
 use structopt::StructOpt;
 use regex::Regex;
 
+use std::sync::{Arc, Mutex};
+
+mod timeln_annotation;
+mod time_format;
+mod summarizer;
+use crate::timeln_annotation::{TimelnAnnotation, SimpleAnnotator};
+use crate::time_format::{SecondsFormat};
+use crate::summarizer::{Summarizer, SimpleSummarizer};
+
 #[derive(Debug, StructOpt)]
-#[structopt(name = "time-reader", about = "A utility that times lines/regex from stdin.")]
+#[structopt(name = "timeln", about = "A utility that times lines/regex from stdin.")]
 struct Opt {
     #[structopt(short = "c", long = "color")]
     color: bool,
@@ -62,12 +70,29 @@ fn main() -> Result<(), CustomError> {
     let mut last_time = Instant::now();
     let start_time = Instant::now();
     let mut buffer = String::new();
+    let time_format = SecondsFormat{};
+    let annotator = SimpleAnnotator { color: opt.color, time_format: Box::new(time_format.clone()) };
 
     let regex = if let Some(r) = opt.regex {
         Some(Regex::new(&r)?)
     } else {
         None
     };
+
+    let summarizer: Arc<Box<dyn Summarizer>> = Arc::new(Box::new(SimpleSummarizer {color: opt.color})); // or DetailedSummarizer
+
+    let total_lines = Arc::new(Mutex::new(0));
+
+    let total_lines_ctrlc = total_lines.clone();
+    let summarizer_ctrlc = summarizer.clone();
+    let start_time_ctrlc = start_time.clone();
+    let time_format_ctrlc = time_format.clone();
+
+    ctrlc::set_handler(move || {
+        let total_lines = total_lines_ctrlc.lock().unwrap();
+        println!("{}", summarizer_ctrlc.summarize(*total_lines, &Instant::now().duration_since(start_time_ctrlc), &time_format_ctrlc));
+        std::process::exit(0);
+    }).expect("Error setting Ctrl-C handler");
 
     let mut stdin = stdin.lock();
     loop {
@@ -76,62 +101,36 @@ fn main() -> Result<(), CustomError> {
         if bytes_read == 0 { // EOF
             break;
         }
-
+        let mut total_lines_guard = total_lines.lock().unwrap();
+        *total_lines_guard += 1;
+        
+        let now = Instant::now();
+        
         if let Some(re) = &regex {
-            for cap in re.captures_iter(&buffer) {
-                let now = Instant::now();
-                let delta = now.duration_since(last_time);
-                let elapsed = now.duration_since(start_time);
+            match re.captures_iter(&buffer).next() {
+                Some(cap) => {
+                    let delta = now.duration_since(last_time);
+                    last_time = now;
 
-                let elapsed_seconds = duration_to_seconds(&elapsed);
-                let delta_seconds = duration_to_seconds(&delta);
-
-                last_time = now;
-
-                let timestamp = format!(
-                    "[time: {:.2} s, delta: {:.2} s]", 
-                    elapsed_seconds, delta_seconds
-                );
-
-                let output = if opt.color {
-                    format!("{} {}",
-                            timestamp.green(),
-                            buffer.trim().replace(&cap[0], &format!("{}", &cap[0].red()))
-                    )
-                } else {
-                    format!("{} {}", timestamp, buffer.trim())
-                };
-
-                println!("{}", output);
+                    let line = String::from(buffer.trim().replace(&cap[0], &format!("{}", &cap[0].red())));
+                    let output = annotator.format_line(&line, &now.duration_since(start_time), &delta);
+                    println!("{}", output);
+                },
+                None => {}
             }
         } else {
-            let now = Instant::now();
             let delta = now.duration_since(last_time);
-            let elapsed = now.duration_since(start_time);
-
-            let elapsed_seconds = duration_to_seconds(&elapsed);
-            let delta_seconds = duration_to_seconds(&delta);
-
             last_time = now;
-
-            let timestamp = format!(
-                "[time: {:.2} s, delta: {:.2} s]", 
-                elapsed_seconds, delta_seconds
-            );
-
-            let output = if opt.color {
-                format!("{} {}", timestamp.green(), buffer.trim())
-            } else {
-                format!("{} {}", timestamp, buffer.trim())
-            };
-
+            
+            let line = String::from(buffer.trim());
+            let output = annotator.format_line(&line, &now.duration_since(start_time), &delta);
             println!("{}", output);
         }
     }
 
-    Ok(())
-}
+    let now = Instant::now();
+    let total_lines_final = total_lines.lock().unwrap();
+    println!("{}", summarizer.summarize(*total_lines_final, &now.duration_since(start_time), &time_format));
 
-fn duration_to_seconds(duration: &Duration) -> f64 {
-    duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
+    Ok(())
 }
