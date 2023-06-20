@@ -1,6 +1,6 @@
 use std::time::Duration;
 use colored::Colorize;
-use crate::time_formatter::TimeFormat;
+use crate::formatter::TimeFormat;
 
 /// A trait for objects that can summarize a process by providing a summary string
 /// based on total lines processed, total time taken, and a specified time format.
@@ -62,7 +62,7 @@ impl Summarizer for DetailedSummarizer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::time_formatter::SecondsFormat;
+    use crate::formatter::SecondsFormat;
     use std::time::Duration;
 
     #[test]

@@ -24,9 +24,9 @@
 //! If colorization is enabled, the timing information is printed in green and the matched strings are printed in red.
 
 mod annotator;
-mod time_formatter;
+mod formatter;
 mod summarizer;
-mod plotter;
+mod plot;
 mod timeln;
 mod argopt;
 

@@ -1,3 +1,6 @@
+//! The `timeln` module provides tools to annotate and summarize the time between each line of input.
+//! It is useful for profiling log files or other streams of data.
+//! You can use the `TimelnContext` struct to create a new instance, read and annotate the lines, and then summarize and plot the data.
 use std::io::{self, BufRead, StdinLock};
 use std::time::{Instant, Duration};
 use colored::*;
@@ -7,11 +10,12 @@ use std::sync::{Arc, Mutex, PoisonError, MutexGuard};
 use std::sync::mpsc::{self, Receiver, Sender, SendError};
 
 use crate::annotator::{TimelnAnnotation, SimpleAnnotator};
-use crate::time_formatter::{SecondsFormat};
+use crate::formatter::{SecondsFormat};
 use crate::summarizer::{Summarizer, SimpleSummarizer};
-use crate::plotter::plot_deltas;
+use crate::plot::plot_deltas;
 use crate::argopt::{TimelnOpt};
 
+/// This enum defines the various types of errors that could occur within the timeln module.
 #[derive(Debug)]
 pub enum TimelnError {
     Io(std::io::Error),
@@ -21,6 +25,7 @@ pub enum TimelnError {
     BoxError(Box<dyn std::error::Error>),
 }
 
+/// Implementations of From trait for TimelnError. 
 impl From<std::io::Error> for TimelnError {
     fn from(err: std::io::Error) -> Self {
         TimelnError::Io(err)
@@ -51,6 +56,8 @@ impl<T> From<PoisonError<MutexGuard<'_, T>>> for TimelnError {
     }
 }
 
+/// The main context struct for running the timeln module.
+/// It holds the state of the input and the options for processing the input.
 pub struct TimelnContext {
     stdin: StdinLock<'static>,
     annotator: SimpleAnnotator,
@@ -65,6 +72,7 @@ pub struct TimelnContext {
 }
 
 impl TimelnContext {
+    /// Creates a new instance of TimelnContext from a given set of options.
     pub fn new(opt: TimelnOpt) -> Result<Self, TimelnError> {
         let stdin = io::stdin();
         let start_time = Instant::now();
@@ -99,6 +107,7 @@ impl TimelnContext {
         })
     }
 
+    /// Runs the main loop of reading from stdin, annotating the lines and sending the duration to the receiver.
     pub fn run(&mut self) -> Result<(), TimelnError> {
         let mut last_time = Instant::now();
         let mut buffer = String::new();
@@ -165,6 +174,7 @@ impl TimelnContext {
         Ok(())
     }
 
+    /// Prints a summary of the results and optionally plots the data.
     pub fn summarize_and_plot(&self) -> Result<(), TimelnError> {
         let now = Instant::now();
         let total_lines_final = self.total_lines.lock()?;
@@ -179,5 +189,48 @@ impl TimelnContext {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::argopt::TimelnOpt;
+
+    #[test]
+    fn test_timeln_context_new() {
+        let opt = TimelnOpt {
+            color: false,
+            regex: None,
+            plot: false,
+        };
+        let context = TimelnContext::new(opt);
+        assert!(context.is_ok());
+    }
+
+    #[test]
+    fn test_send_duration() {
+        let opt = TimelnOpt {
+            color: false,
+            regex: None,
+            plot: false,
+        };
+        let context = TimelnContext::new(opt).unwrap();
+        let duration = Duration::from_secs(1);
+        assert!(context.tx.send(duration).is_ok());
+    }
+
+    #[test]
+    fn test_receive_duration() {
+        let opt = TimelnOpt {
+            color: false,
+            regex: None,
+            plot: false,
+        };
+        let context = TimelnContext::new(opt).unwrap();
+        let duration = Duration::from_secs(1);
+        context.tx.send(duration).unwrap();
+        let rx_lock = context.rx.lock().unwrap();
+        assert_eq!(rx_lock.try_recv().unwrap(), duration);
     }
 }
