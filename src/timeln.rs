@@ -3,8 +3,8 @@ use std::time::{Instant, Duration};
 use colored::*;
 use regex::Regex;
 
-use std::sync::{Arc, Mutex};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Mutex, PoisonError, MutexGuard};
+use std::sync::mpsc::{self, Receiver, Sender, SendError};
 
 use crate::annotator::{TimelnAnnotation, SimpleAnnotator};
 use crate::time_formatter::{SecondsFormat};
@@ -16,6 +16,9 @@ use crate::argopt::{TimelnOpt};
 pub enum TimelnError {
     Io(std::io::Error),
     Regex(regex::Error),
+    SendError(SendError<Duration>),
+    MutexPoisonedError(String),
+    BoxError(Box<dyn std::error::Error>),
 }
 
 impl From<std::io::Error> for TimelnError {
@@ -27,6 +30,24 @@ impl From<std::io::Error> for TimelnError {
 impl From<regex::Error> for TimelnError {
     fn from(err: regex::Error) -> Self {
         TimelnError::Regex(err)
+    }
+}
+
+impl From<SendError<Duration>> for TimelnError {
+    fn from(err: SendError<Duration>) -> Self {
+        TimelnError::SendError(err)
+    }
+}
+
+impl From<Box<dyn std::error::Error>> for TimelnError {
+    fn from(err: Box<dyn std::error::Error>) -> Self {
+        TimelnError::BoxError(err)
+    }
+}
+
+impl<T> From<PoisonError<MutexGuard<'_, T>>> for TimelnError {
+    fn from(err: PoisonError<MutexGuard<'_, T>>) -> Self {
+        TimelnError::MutexPoisonedError(format!("Mutex was poisoned: {}", err))
     }
 }
 
@@ -107,7 +128,7 @@ impl TimelnContext {
             if bytes_read == 0 { // EOF
                 break;
             }
-            let mut total_lines_guard = self.total_lines.lock().unwrap();
+            let mut total_lines_guard = self.total_lines.lock()?;
             *total_lines_guard += 1;
             
             let now = Instant::now();
@@ -118,7 +139,7 @@ impl TimelnContext {
                         let delta = now.duration_since(last_time);
                         last_time = now;
 
-                        self.tx.send(delta).unwrap();
+                        self.tx.send(delta)?;
 
                         let mut total_matches_guard = self.total_matches.lock().unwrap();
                         *total_matches_guard += 1;
@@ -133,7 +154,7 @@ impl TimelnContext {
                 let delta = now.duration_since(last_time);
                 last_time = now;
 
-                self.tx.send(delta).unwrap();
+                self.tx.send(delta)?;
                 
                 let line = String::from(buffer.trim());
                 let output = self.annotator.format_line(&line, &now.duration_since(self.start_time), &delta);
@@ -146,14 +167,15 @@ impl TimelnContext {
 
     pub fn summarize_and_plot(&self) -> Result<(), TimelnError> {
         let now = Instant::now();
-        let total_lines_final = self.total_lines.lock().unwrap();
-        let total_matches_final= self.total_matches.lock().unwrap();
+        let total_lines_final = self.total_lines.lock()?;
+        let total_matches_final= self.total_matches.lock()?;
         println!("{}", self.summarizer.summarize(*total_lines_final, *total_matches_final, &now.duration_since(self.start_time), &**self.annotator.time_format));
 
         if self.plot {
-            let durations: Vec<_> = self.rx.lock().unwrap().try_iter().collect();
+            let rx_lock = self.rx.lock()?;
+            let durations: Vec<_> = rx_lock.try_iter().collect();
             let deltas: Vec<f64> = durations.iter().map(|&dur| dur.as_secs_f64()).collect();
-            plot_deltas(&deltas, "deltas.png").unwrap();
+            plot_deltas(&deltas, "deltas.png")?;
         }
 
         Ok(())
