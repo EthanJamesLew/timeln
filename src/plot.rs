@@ -24,7 +24,7 @@ use plotters::prelude::*;
 /// plot_deltas(&deltas, filename).unwrap();
 /// ```
 pub fn plot_deltas(deltas: &Vec<f64>, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let root = BitMapBackend::new(filename, (640, 480)).into_drawing_area();
+    let root = SVGBackend::new(filename, (640, 480)).into_drawing_area();
     root.fill(&WHITE)?;
 
     let max_y = *deltas.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap_or(&1f64);
@@ -50,6 +50,33 @@ pub fn plot_deltas(deltas: &Vec<f64>, filename: &str) -> Result<(), Box<dyn std:
     Ok(())
 }
 
+pub fn plot_times(times: &Vec<f64>, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let root = SVGBackend::new(filename, (640, 480)).into_drawing_area();
+    root.fill(&WHITE)?;
+
+    let max_y = *times.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap_or(&1f64);
+    let min_y = 0f64;
+    let max_x = times.len() as f64;
+
+    let mut chart = ChartBuilder::on(&root)
+        .margin(5)
+        .caption("Line number vs Time Elapsed", ("Arial", 30).into_font())
+        .set_all_label_area_size(50)
+        .build_cartesian_2d(0f64..max_x, min_y..max_y)?;
+
+    chart.configure_mesh()
+        .x_desc("Line number")
+        .y_desc("Time Elapsed (seconds)")
+        .draw()?;
+
+    chart.draw_series(LineSeries::new(
+        times.iter().enumerate().map(|(x, y)| (x as f64, *y)),
+        &BLUE,
+    ))?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -58,7 +85,7 @@ mod tests {
     #[test]
     fn test_plot_deltas() -> Result<(), Box<dyn std::error::Error>> {
         let deltas = vec![0.1, 0.2, 0.3, 0.4, 0.5];
-        let filename = "test_deltas.png";
+        let filename = "test_deltas.svg";
         plot_deltas(&deltas, filename)?;
 
         // Check that the file was created

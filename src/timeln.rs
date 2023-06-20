@@ -12,15 +12,22 @@ use std::sync::mpsc::{self, Receiver, Sender, SendError};
 use crate::annotator::{TimelnAnnotation, SimpleAnnotator};
 use crate::formatter::{SecondsFormat};
 use crate::summarizer::{Summarizer, SimpleSummarizer};
-use crate::plot::plot_deltas;
+use crate::plot::{plot_deltas, plot_times};
 use crate::argopt::{TimelnOpt};
+
+/// Information Collected at Each Line
+#[derive(Debug, Copy, Clone)]
+pub struct TimeSnapshot {
+    delta: Duration,
+    elapsed: Duration,
+}
 
 /// This enum defines the various types of errors that could occur within the timeln module.
 #[derive(Debug)]
 pub enum TimelnError {
     Io(std::io::Error),
     Regex(regex::Error),
-    SendError(SendError<Duration>),
+    SendError(SendError<TimeSnapshot>),
     MutexPoisonedError(String),
     BoxError(Box<dyn std::error::Error>),
 }
@@ -38,8 +45,8 @@ impl From<regex::Error> for TimelnError {
     }
 }
 
-impl From<SendError<Duration>> for TimelnError {
-    fn from(err: SendError<Duration>) -> Self {
+impl From<SendError<TimeSnapshot>> for TimelnError {
+    fn from(err: SendError<TimeSnapshot>) -> Self {
         TimelnError::SendError(err)
     }
 }
@@ -65,8 +72,8 @@ pub struct TimelnContext {
     total_lines: Arc<Mutex<usize>>,
     total_matches: Arc<Mutex<usize>>,
     regex: Option<Regex>,
-    tx: Sender<Duration>,
-    rx: Arc<Mutex<Receiver<Duration>>>,
+    tx: Sender<TimeSnapshot>,
+    rx: Arc<Mutex<Receiver<TimeSnapshot>>>,
     start_time: Instant,
     plot: bool,
 }
@@ -90,7 +97,7 @@ impl TimelnContext {
         let total_lines = Arc::new(Mutex::new(0));
         let total_matches = Arc::new(Mutex::new(0));
 
-        let (tx, rx) = mpsc::channel::<Duration>();
+        let (tx, rx) = mpsc::channel::<TimeSnapshot>();
         let rx = Arc::new(Mutex::new(rx));
 
         Ok(Self {
@@ -126,8 +133,10 @@ impl TimelnContext {
             
             let rx_lock = rx_ctrlc.lock().unwrap();
             let durations: Vec<_> = rx_lock.try_iter().collect();
-            let deltas: Vec<f64> = durations.iter().map(|&dur| dur.as_secs_f64()).collect();
-            plot_deltas(&deltas, "deltas.png").unwrap();
+            let deltas: Vec<f64> = durations.iter().map(|&dur| dur.delta.as_secs_f64()).collect();
+            let times: Vec<f64> = durations.iter().map(|&dur| dur.elapsed.as_secs_f64()).collect();
+            plot_deltas(&deltas, "deltas.svg").unwrap();
+            plot_times(&times, "times.svg").unwrap();
             std::process::exit(0);
         }).expect("Error setting Ctrl-C handler");
 
@@ -148,7 +157,7 @@ impl TimelnContext {
                         let delta = now.duration_since(last_time);
                         last_time = now;
 
-                        self.tx.send(delta)?;
+                        self.tx.send(TimeSnapshot { delta: delta, elapsed: now.duration_since(self.start_time) })?;
 
                         let mut total_matches_guard = self.total_matches.lock().unwrap();
                         *total_matches_guard += 1;
@@ -163,7 +172,7 @@ impl TimelnContext {
                 let delta = now.duration_since(last_time);
                 last_time = now;
 
-                self.tx.send(delta)?;
+                self.tx.send(TimeSnapshot { delta: delta, elapsed: now.duration_since(self.start_time) })?;
                 
                 let line = String::from(buffer.trim());
                 let output = self.annotator.format_line(&line, &now.duration_since(self.start_time), &delta);
@@ -184,8 +193,10 @@ impl TimelnContext {
         if self.plot {
             let rx_lock = self.rx.lock()?;
             let durations: Vec<_> = rx_lock.try_iter().collect();
-            let deltas: Vec<f64> = durations.iter().map(|&dur| dur.as_secs_f64()).collect();
-            plot_deltas(&deltas, "deltas.png")?;
+            let deltas: Vec<f64> = durations.iter().map(|&dur| dur.delta.as_secs_f64()).collect();
+            let times: Vec<f64> = durations.iter().map(|&dur| dur.elapsed.as_secs_f64()).collect();
+            plot_deltas(&deltas, "deltas.svg")?;
+            plot_times(&times, "times.svg")?;
         }
 
         Ok(())
@@ -217,7 +228,7 @@ mod tests {
         };
         let context = TimelnContext::new(opt).unwrap();
         let duration = Duration::from_secs(1);
-        assert!(context.tx.send(duration).is_ok());
+        assert!(context.tx.send(TimeSnapshot { delta: duration, elapsed: duration }).is_ok());
     }
 
     #[test]
@@ -229,8 +240,8 @@ mod tests {
         };
         let context = TimelnContext::new(opt).unwrap();
         let duration = Duration::from_secs(1);
-        context.tx.send(duration).unwrap();
+        context.tx.send(TimeSnapshot { delta: duration, elapsed: duration }).unwrap();
         let rx_lock = context.rx.lock().unwrap();
-        assert_eq!(rx_lock.try_recv().unwrap(), duration);
+        assert_eq!(rx_lock.try_recv().unwrap().delta, duration);
     }
 }
