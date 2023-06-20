@@ -1,10 +1,12 @@
+![https://crates.io/crates/timeln](https://img.shields.io/crates/v/timeln.svg)
+
 # timeln
 
 *annotate your stdout with time information*
 
 Do you like debugging with a copious amount of print statements? Do you often find yourself adding timers around sections of your code to see how long they take to execute? Do you wish you could see the time elapsed between key patterns of your program's output? If so, then timeln is for you!
 
-![timeln example](./docs/img/fib_example.png)
+![timeln example](https://raw.githubusercontent.com/EthanJamesLew/timeln/main/docs/img/fib_example.png)
 
 Timeln is a command-line utility written in Rust that time tracks patterns appearing in your scripts' print statements, creating "timeline" of your command line applications and scripts.
 
@@ -16,6 +18,17 @@ Features:
 * **Colorized Output**: Adds an option to colorize output, with time and delta time stamps in green for enhanced readability.
 * **Regex Highlighting**: When colorization is enabled, regex matches are highlighted in red for easy identification.
 The name "Timeln" is a pun combining the concepts of "println" and "timeline", reflecting its function of printing time-stamped lines as a timeline of your program's execution. Utilizing the powerful StructOpt and regex libraries, Timeln ensures straightforward usage via CLI and powerful regular expression capabilities.
+
+## Install from Crates.io
+
+The program is installed on crates.io under [timeln](https://crates.io/crates/timeln)
+```shell
+cargo install timeln
+```
+
+## Install Binaries
+
+See the releases on the [GitHub page](https://github.com/EthanJamesLew/timeln/releases).
 
 ## Install from Source
 To install Timeln, you first need to have Rust installed on your machine. If you haven't installed Rust yet, you can do so by following the instructions [here](https://www.rust-lang.org/tools/install).
@@ -30,9 +43,6 @@ The `timeln` binary will now be available in the `target/release` directory. You
 ```shell
 mv target/release/timeln <DIR IN PATH>
 ```
-
-## Install Binaries
-TODO
 
 ## Usage
 
