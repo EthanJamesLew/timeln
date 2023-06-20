@@ -2,7 +2,7 @@ use std::time::Duration;
 
 /// The `TimeFormat` trait provides an abstraction over formatting of `Duration`s.
 /// Implementations of `TimeFormat` provide methods to convert `Duration` into a human-readable string format.
-pub trait TimeFormat {
+pub trait TimeFormat: Send + Sync {
     /// Takes a `Duration` and formats it into a `String`.
     ///
     /// # Arguments

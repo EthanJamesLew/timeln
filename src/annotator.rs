@@ -1,5 +1,5 @@
 use crate::time_formatter::{TimeFormat};
-use std::time::Duration;
+use std::{time::Duration, sync::Arc};
 
 use colored::Colorize;
 
@@ -23,7 +23,7 @@ pub trait TimelnAnnotation {
 /// The `SimpleAnnotator` struct is an implementation of the `TimelnAnnotation` trait that annotates lines with simple time and delta information.
 pub struct SimpleAnnotator {
     pub color: bool,
-    pub time_format: Box<dyn TimeFormat>,
+    pub time_format: Arc<Box<dyn TimeFormat>>,
 }
 
 impl TimelnAnnotation for SimpleAnnotator {
@@ -44,7 +44,7 @@ impl TimelnAnnotation for SimpleAnnotator {
 /// The `UnicodeAnnotator` struct is an implementation of the `TimelnAnnotation` trait that annotates lines with Unicode symbols for time and delta.
 pub struct UnicodeAnnotator {
     pub color: bool,
-    pub time_format: Box<dyn TimeFormat>,
+    pub time_format: Arc<Box<dyn TimeFormat>>,
 }
 
 impl TimelnAnnotation for UnicodeAnnotator {
@@ -66,10 +66,11 @@ impl TimelnAnnotation for UnicodeAnnotator {
 mod tests {
     use super::*;
     use crate::time_formatter::SecondsFormat;
+    use std::sync::Arc;
 
     #[test]
     fn test_simple_annotation() {
-        let annotator = SimpleAnnotator { color: false, time_format: Box::new(SecondsFormat) };
+        let annotator = SimpleAnnotator { color: false, time_format: Arc::new(Box::new(SecondsFormat)) };
         let now = Duration::new(5, 500_000_000); // 5.5 seconds
         let delta = Duration::new(1, 500_000_000); // 1.5 seconds
         let line = "Sample line".to_string();
@@ -81,7 +82,7 @@ mod tests {
 
     #[test]
     fn test_unicode_annotator() {
-        let annotator = UnicodeAnnotator { color: false, time_format: Box::new(SecondsFormat) };
+        let annotator = UnicodeAnnotator { color: false, time_format: Arc::new(Box::new(SecondsFormat)) };
         let now = Duration::new(5, 500_000_000); // 5.5 seconds
         let delta = Duration::new(1, 500_000_000); // 1.5 seconds
         let line = "Sample line".to_string();
