@@ -29,11 +29,14 @@ mod summarizer;
 mod plot;
 mod timeln;
 mod argopt;
+mod reader;
+mod error;
 
 use structopt::StructOpt;
 
 use crate::argopt::TimelnOpt;
-use crate::timeln::{TimelnContext, TimelnError};
+use crate::timeln::{TimelnContext};
+use crate::error::{TimelnError};
 
 fn main() -> Result<(), TimelnError> {
     let opt = TimelnOpt::from_args();

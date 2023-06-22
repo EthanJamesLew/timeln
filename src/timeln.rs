@@ -1,19 +1,21 @@
 //! The `timeln` module provides tools to annotate and summarize the time between each line of input.
 //! It is useful for profiling log files or other streams of data.
 //! You can use the `TimelnContext` struct to create a new instance, read and annotate the lines, and then summarize and plot the data.
-use std::io::{self, BufRead, StdinLock};
+use std::io::{self};
 use std::time::{Instant, Duration};
 use colored::*;
 use regex::Regex;
 
-use std::sync::{Arc, Mutex, PoisonError, MutexGuard};
-use std::sync::mpsc::{self, Receiver, Sender, SendError};
+use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{self, Receiver, Sender};
 
 use crate::annotator::{TimelnAnnotation, SimpleAnnotator};
 use crate::formatter::{SecondsFormat};
 use crate::summarizer::{Summarizer, SimpleSummarizer};
 use crate::plot::{plot_deltas, plot_times};
 use crate::argopt::{TimelnOpt};
+use crate::reader::{ReadData, StdinReadData};
+use crate::error::{TimelnError};
 
 /// Information Collected at Each Line
 #[derive(Debug, Copy, Clone)]
@@ -22,51 +24,10 @@ pub struct TimeSnapshot {
     elapsed: Duration,
 }
 
-/// This enum defines the various types of errors that could occur within the timeln module.
-#[derive(Debug)]
-pub enum TimelnError {
-    Io(std::io::Error),
-    Regex(regex::Error),
-    SendError(SendError<TimeSnapshot>),
-    MutexPoisonedError(String),
-    BoxError(Box<dyn std::error::Error>),
-}
-
-/// Implementations of From trait for TimelnError. 
-impl From<std::io::Error> for TimelnError {
-    fn from(err: std::io::Error) -> Self {
-        TimelnError::Io(err)
-    }
-}
-
-impl From<regex::Error> for TimelnError {
-    fn from(err: regex::Error) -> Self {
-        TimelnError::Regex(err)
-    }
-}
-
-impl From<SendError<TimeSnapshot>> for TimelnError {
-    fn from(err: SendError<TimeSnapshot>) -> Self {
-        TimelnError::SendError(err)
-    }
-}
-
-impl From<Box<dyn std::error::Error>> for TimelnError {
-    fn from(err: Box<dyn std::error::Error>) -> Self {
-        TimelnError::BoxError(err)
-    }
-}
-
-impl<T> From<PoisonError<MutexGuard<'_, T>>> for TimelnError {
-    fn from(err: PoisonError<MutexGuard<'_, T>>) -> Self {
-        TimelnError::MutexPoisonedError(format!("Mutex was poisoned: {}", err))
-    }
-}
-
 /// The main context struct for running the timeln module.
 /// It holds the state of the input and the options for processing the input.
 pub struct TimelnContext {
-    stdin: StdinLock<'static>,
+    stdin: Box<dyn ReadData>,
     annotator: SimpleAnnotator,
     summarizer: Arc<Box<dyn Summarizer>>,
     total_lines: Arc<Mutex<usize>>,
@@ -82,6 +43,7 @@ impl TimelnContext {
     /// Creates a new instance of TimelnContext from a given set of options.
     pub fn new(opt: TimelnOpt) -> Result<Self, TimelnError> {
         let stdin = io::stdin();
+        let read_data: Box<dyn ReadData> = Box::new(StdinReadData { stdin: stdin.lock() });
         let start_time = Instant::now();
         let time_format = SecondsFormat{};
         let annotator = SimpleAnnotator { color: opt.color, time_format: Arc::new(Box::new(time_format.clone())) };
@@ -101,7 +63,7 @@ impl TimelnContext {
         let rx = Arc::new(Mutex::new(rx));
 
         Ok(Self {
-            stdin: stdin.lock(),
+            stdin: read_data,
             annotator,
             summarizer,
             total_lines,
@@ -206,7 +168,7 @@ impl TimelnContext {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::argopt::TimelnOpt;
+    use crate::{argopt::TimelnOpt, reader::TestReadData};
 
     #[test]
     fn test_timeln_context_new() {
@@ -243,5 +205,18 @@ mod tests {
         context.tx.send(TimeSnapshot { delta: duration, elapsed: duration }).unwrap();
         let rx_lock = context.rx.lock().unwrap();
         assert_eq!(rx_lock.try_recv().unwrap().delta, duration);
+    }
+
+    #[test]
+    fn test_run() {
+        let opt = TimelnOpt {
+            color: false,
+            regex: None,
+            plot: false,
+        };
+        let mut context = TimelnContext::new(opt).unwrap();
+        let test_data = TestReadData { data: std::io::Cursor::new("test\n".to_string()) };
+        context.stdin = Box::new(test_data);
+        assert!(context.run().is_ok());
     }
 }
