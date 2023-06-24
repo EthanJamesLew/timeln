@@ -1,4 +1,5 @@
 ![https://crates.io/crates/timeln](https://img.shields.io/crates/v/timeln.svg)
+[![Rust](https://github.com/EthanJamesLew/timeln/actions/workflows/rust.yml/badge.svg)](https://github.com/EthanJamesLew/timeln/actions/workflows/rust.yml)
 
 # timeln
 
