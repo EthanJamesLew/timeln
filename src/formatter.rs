@@ -34,7 +34,8 @@ pub struct MillisecondsFormat;
 impl TimeFormat for MillisecondsFormat {
     /// Takes a `Duration` and formats it into a `String` representation of milliseconds.
     fn format_duration(&self, duration: &Duration) -> String {
-        let in_milliseconds = duration.as_secs() as f64 * 1e3 + duration.subsec_nanos() as f64 * 1e-6;
+        let in_milliseconds =
+            duration.as_secs() as f64 * 1e3 + duration.subsec_nanos() as f64 * 1e-6;
         format!("{:.2} ms", in_milliseconds)
     }
 }

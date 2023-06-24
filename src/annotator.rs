@@ -1,5 +1,5 @@
-use crate::formatter::{TimeFormat};
-use std::{time::Duration, sync::Arc};
+use crate::formatter::TimeFormat;
+use std::{sync::Arc, time::Duration};
 
 use colored::Colorize;
 
@@ -17,7 +17,7 @@ pub trait TimelnAnnotation {
     /// # Returns
     ///
     /// * `String` - A string with the line text and its annotated information.
-    fn format_line(&self, line: &String, now: &Duration, delta: &Duration) -> String; 
+    fn format_line(&self, line: &String, now: &Duration, delta: &Duration) -> String;
 }
 
 /// The `SimpleAnnotator` struct is an implementation of the `TimelnAnnotation` trait that annotates lines with simple time and delta information.
@@ -31,7 +31,7 @@ impl TimelnAnnotation for SimpleAnnotator {
     fn format_line(&self, line: &String, now: &Duration, delta: &Duration) -> String {
         let time_str = self.time_format.format_duration(now);
         let delta_str = self.time_format.format_duration(delta);
-        
+
         if self.color {
             let color_annotation = format!("[time: {}, delta: {}]", time_str, delta_str);
             format!("{} {}", color_annotation.green(), line)
@@ -52,7 +52,7 @@ impl TimelnAnnotation for UnicodeAnnotator {
     fn format_line(&self, line: &String, now: &Duration, delta: &Duration) -> String {
         let time_str = self.time_format.format_duration(now);
         let delta_str = self.time_format.format_duration(delta);
-        
+
         if self.color {
             let color_annotation = format!("[Τ: {}, Δ: {}]", time_str, delta_str);
             format!("{} {}", color_annotation.green(), line)
@@ -70,7 +70,10 @@ mod tests {
 
     #[test]
     fn test_simple_annotation() {
-        let annotator = SimpleAnnotator { color: false, time_format: Arc::new(Box::new(SecondsFormat)) };
+        let annotator = SimpleAnnotator {
+            color: false,
+            time_format: Arc::new(Box::new(SecondsFormat)),
+        };
         let now = Duration::new(5, 500_000_000); // 5.5 seconds
         let delta = Duration::new(1, 500_000_000); // 1.5 seconds
         let line = "Sample line".to_string();
@@ -82,7 +85,10 @@ mod tests {
 
     #[test]
     fn test_unicode_annotator() {
-        let annotator = UnicodeAnnotator { color: false, time_format: Arc::new(Box::new(SecondsFormat)) };
+        let annotator = UnicodeAnnotator {
+            color: false,
+            time_format: Arc::new(Box::new(SecondsFormat)),
+        };
         let now = Duration::new(5, 500_000_000); // 5.5 seconds
         let delta = Duration::new(1, 500_000_000); // 1.5 seconds
         let line = "Sample line".to_string();

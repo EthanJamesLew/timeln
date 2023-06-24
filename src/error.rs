@@ -44,7 +44,7 @@
 //!
 use std::sync::{mpsc::SendError, MutexGuard, PoisonError};
 
-use crate::{timeln::TimeSnapshot};
+use crate::timeln::TimeSnapshot;
 
 /// This enum defines the various types of errors that could occur within the timeln module.
 #[derive(Debug)]
@@ -56,38 +56,38 @@ pub enum TimelnError {
     BoxError(Box<dyn std::error::Error>),
 }
 
-/// Implementations of From trait for TimelnError. 
+/// Implementations of From trait for TimelnError.
 
 impl From<std::io::Error> for TimelnError {
-    /// Converts a std::io::Error into a TimelnError.
+    /// Converts a `std::io::Error` into a `TimelnError`.
     fn from(err: std::io::Error) -> Self {
         TimelnError::Io(err)
     }
 }
 
 impl From<regex::Error> for TimelnError {
-    /// Converts a regex::Error into a TimelnError.
+    /// Converts a `regex::Error` into a TimelnError.
     fn from(err: regex::Error) -> Self {
         TimelnError::Regex(err)
     }
 }
 
 impl From<SendError<TimeSnapshot>> for TimelnError {
-    /// Converts a SendError<TimeSnapshot> into a TimelnError.
+    /// Converts a `SendError<TimeSnapshot>` into a `TimelnError`.
     fn from(err: SendError<TimeSnapshot>) -> Self {
         TimelnError::SendError(err)
     }
 }
 
 impl From<Box<dyn std::error::Error>> for TimelnError {
-    /// Converts a Box<dyn std::error::Error> into a TimelnError.
+    /// Converts a `Box<dyn std::error::Error>` into a `TimelnError`.
     fn from(err: Box<dyn std::error::Error>) -> Self {
         TimelnError::BoxError(err)
     }
 }
 
 impl<T> From<PoisonError<MutexGuard<'_, T>>> for TimelnError {
-    /// Converts a PoisonError<MutexGuard<'_, T>> into a TimelnError.
+    /// Converts a `PoisonError<MutexGuard<'_, T>>` into a `TimelnError`.
     fn from(err: PoisonError<MutexGuard<'_, T>>) -> Self {
         TimelnError::MutexPoisonedError(format!("Mutex was poisoned: {}", err))
     }
@@ -118,19 +118,19 @@ mod tests {
         // Arrange
         let (sender, receiver) = std::sync::mpsc::channel::<TimeSnapshot>();
         let snapshot = TimeSnapshot::default();
-    
+
         // Close the receiver end of the channel
         drop(receiver);
-    
+
         // Attempt to send a TimeSnapshot (receiver dropped intentionally)
         let send_result = sender.send(snapshot);
-    
+
         // Act
         let timeln_error: TimelnError = match send_result {
             Err(err) => err.into(),
             Ok(_) => panic!("Expected SendError, but send operation succeeded."),
         };
-    
+
         // Assert
         match timeln_error {
             TimelnError::SendError(_) => assert!(true),

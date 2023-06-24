@@ -6,37 +6,39 @@
 //! If no regex pattern is provided, the program times every line.
 //! If a regex pattern is provided, it times and prints only the lines that match the regex pattern.
 //!
-//! The utility uses the StructOpt crate for parsing command line arguments and the regex crate for matching regular expressions.
-//! It also uses the colored crate to colorize the output.
+//! The utility uses the `StructOpt` crate for parsing command line arguments and the `regex` crate for matching regular expressions.
+//! It also uses the `colored` crate to colorize the output.
 //!
-//! Usage: 
-//!     To use this utility, compile it and run it from the command line. 
-//!     You can provide input directly from the command line or pipe input from another command.
+//! # Usage
+//! To use this utility, compile it and run it from the command line.
+//! You can provide input directly from the command line or pipe input from another command.
 //!
-//!     You can use the `-c` or `--color` option to enable colorization of the timing information.
-//!     Use the `-r` or `--regex` option followed by a regex pattern to time and print only the lines that match the pattern.
+//! You can use the -c or --color option to enable colorization of the timing information.
+//! Use the -r or --regex option followed by a regex pattern to time and print only the lines that match the pattern.
+//! Use the -p or --plot option to generate svg plots of the cumulative time elapsed and the deltas.
 //!
-//! Example:
+//! ## Example
 //!     python your_script.py | timeln -c
 //!     python your_script.py | timeln -r "your_regex_pattern"
+//!     python your_script.py | timeln -r -p
 //!
-//! The script prints the elapsed time and the delta time between lines or regex matches in the format "[time: XX.XX s, delta: XX.XX s]".
+//! The script prints the elapsed time and the delta time between lines or regex matches in the format `"[time: XX.XX s, delta: XX.XX s]"`.
 //! If colorization is enabled, the timing information is printed in green and the matched strings are printed in red.
 
 mod annotator;
-mod formatter;
-mod summarizer;
-mod plot;
-mod timeln;
 mod argopt;
-mod reader;
 mod error;
+mod formatter;
+mod plot;
+mod reader;
+mod summarizer;
+mod timeln;
 
 use structopt::StructOpt;
 
 use crate::argopt::TimelnOpt;
-use crate::timeln::{TimelnContext};
-use crate::error::{TimelnError};
+use crate::error::TimelnError;
+use crate::timeln::TimelnContext;
 
 fn main() -> Result<(), TimelnError> {
     let opt = TimelnOpt::from_args();

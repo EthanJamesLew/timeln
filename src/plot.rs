@@ -2,8 +2,8 @@ use plotters::prelude::*;
 
 /// Plots time deltas and saves the plot as a PNG file.
 ///
-/// This function takes a vector of time deltas in seconds and a filename as arguments. 
-/// It creates a line plot of these deltas and saves it as a PNG file. 
+/// This function takes a vector of time deltas in seconds and a filename as arguments.
+/// It creates a line plot of these deltas and saves it as a PNG file.
 /// The x-axis of the plot represents the line number, and the y-axis represents the time delta.
 /// The plot also includes a title and labels for both axes.
 ///
@@ -27,7 +27,10 @@ pub fn plot_deltas(deltas: &Vec<f64>, filename: &str) -> Result<(), Box<dyn std:
     let root = SVGBackend::new(filename, (640, 480)).into_drawing_area();
     root.fill(&WHITE)?;
 
-    let max_y = *deltas.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap_or(&1f64);
+    let max_y = *deltas
+        .iter()
+        .max_by(|a, b| a.partial_cmp(b).unwrap())
+        .unwrap_or(&1f64);
     let min_y = 0f64;
     let max_x = deltas.len() as f64;
 
@@ -37,7 +40,8 @@ pub fn plot_deltas(deltas: &Vec<f64>, filename: &str) -> Result<(), Box<dyn std:
         .set_all_label_area_size(50)
         .build_cartesian_2d(0f64..max_x, min_y..max_y)?;
 
-    chart.configure_mesh()
+    chart
+        .configure_mesh()
         .x_desc("Line number")
         .y_desc("Time delta (seconds)")
         .draw()?;
@@ -54,7 +58,10 @@ pub fn plot_times(times: &Vec<f64>, filename: &str) -> Result<(), Box<dyn std::e
     let root = SVGBackend::new(filename, (640, 480)).into_drawing_area();
     root.fill(&WHITE)?;
 
-    let max_y = *times.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap_or(&1f64);
+    let max_y = *times
+        .iter()
+        .max_by(|a, b| a.partial_cmp(b).unwrap())
+        .unwrap_or(&1f64);
     let min_y = 0f64;
     let max_x = times.len() as f64;
 
@@ -64,7 +71,8 @@ pub fn plot_times(times: &Vec<f64>, filename: &str) -> Result<(), Box<dyn std::e
         .set_all_label_area_size(50)
         .build_cartesian_2d(0f64..max_x, min_y..max_y)?;
 
-    chart.configure_mesh()
+    chart
+        .configure_mesh()
         .x_desc("Line number")
         .y_desc("Time Elapsed (seconds)")
         .draw()?;
@@ -97,7 +105,7 @@ mod tests {
 
         // Cleanup
         std::fs::remove_file(filename)?;
-        
+
         Ok(())
     }
 }

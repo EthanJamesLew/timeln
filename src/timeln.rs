@@ -63,21 +63,21 @@
 //! - `crate::formatter::{SecondsFormat}`: Defines formatting options for time durations.
 //! - `crate::summarizer::{Summarizer, SimpleSummarizer}`: Implements result summarization.
 //! - `crate::plot::{plot_deltas, plot_times}`: Offers plotting capabilities for duration
-use std::io::{self};
-use std::time::{Instant, Duration};
 use colored::*;
 use regex::Regex;
+use std::io::{self};
+use std::time::{Duration, Instant};
 
-use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Mutex};
 
-use crate::annotator::{TimelnAnnotation, SimpleAnnotator};
-use crate::formatter::{SecondsFormat};
-use crate::summarizer::{Summarizer, SimpleSummarizer};
+use crate::annotator::{SimpleAnnotator, TimelnAnnotation};
+use crate::argopt::TimelnOpt;
+use crate::error::TimelnError;
+use crate::formatter::SecondsFormat;
 use crate::plot::{plot_deltas, plot_times};
-use crate::argopt::{TimelnOpt};
 use crate::reader::{ReadData, StdinReadData};
-use crate::error::{TimelnError};
+use crate::summarizer::{SimpleSummarizer, Summarizer};
 
 /// Information Collected at Each Line
 #[derive(Debug, Copy, Clone)]
@@ -115,10 +115,15 @@ impl TimelnContext {
     /// Creates a new instance of TimelnContext from a given set of options.
     pub fn new(opt: TimelnOpt) -> Result<Self, TimelnError> {
         let stdin = io::stdin();
-        let read_data: Box<dyn ReadData> = Box::new(StdinReadData { stdin: stdin.lock() });
+        let read_data: Box<dyn ReadData> = Box::new(StdinReadData {
+            stdin: stdin.lock(),
+        });
         let start_time = Instant::now();
-        let time_format = SecondsFormat{};
-        let annotator = SimpleAnnotator { color: opt.color, time_format: Arc::new(Box::new(time_format.clone())) };
+        let time_format = SecondsFormat {};
+        let annotator = SimpleAnnotator {
+            color: opt.color,
+            time_format: Arc::new(Box::new(time_format.clone())),
+        };
 
         let regex = if let Some(r) = opt.regex {
             Some(Regex::new(&r)?)
@@ -126,7 +131,8 @@ impl TimelnContext {
             None
         };
 
-        let summarizer: Arc<Box<dyn Summarizer>> = Arc::new(Box::new(SimpleSummarizer {color: opt.color}));
+        let summarizer: Arc<Box<dyn Summarizer>> =
+            Arc::new(Box::new(SimpleSummarizer { color: opt.color }));
 
         let total_lines = Arc::new(Mutex::new(0));
         let total_matches = Arc::new(Mutex::new(0));
@@ -162,54 +168,86 @@ impl TimelnContext {
 
         ctrlc::set_handler(move || {
             let total_lines = total_lines_ctrlc.lock().unwrap();
-            let total_matches= total_matches_ctrlc.lock().unwrap();
-            println!("{}", summarizer_ctrlc.summarize(*total_lines, *total_matches, &Instant::now().duration_since(start_time_ctrlc), &**time_format_ctrlc));
-            
+            let total_matches = total_matches_ctrlc.lock().unwrap();
+            println!(
+                "{}",
+                summarizer_ctrlc.summarize(
+                    *total_lines,
+                    *total_matches,
+                    &Instant::now().duration_since(start_time_ctrlc),
+                    &**time_format_ctrlc
+                )
+            );
+
             let rx_lock = rx_ctrlc.lock().unwrap();
             let durations: Vec<_> = rx_lock.try_iter().collect();
-            let deltas: Vec<f64> = durations.iter().map(|&dur| dur.delta.as_secs_f64()).collect();
-            let times: Vec<f64> = durations.iter().map(|&dur| dur.elapsed.as_secs_f64()).collect();
+            let deltas: Vec<f64> = durations
+                .iter()
+                .map(|&dur| dur.delta.as_secs_f64())
+                .collect();
+            let times: Vec<f64> = durations
+                .iter()
+                .map(|&dur| dur.elapsed.as_secs_f64())
+                .collect();
             plot_deltas(&deltas, "deltas.svg").unwrap();
             plot_times(&times, "times.svg").unwrap();
             std::process::exit(0);
-        }).expect("Error setting Ctrl-C handler");
+        })
+        .expect("Error setting Ctrl-C handler");
 
         loop {
             buffer.clear();
             let bytes_read = self.stdin.read_line(&mut buffer)?;
-            if bytes_read == 0 { // EOF
+            if bytes_read == 0 {
+                // EOF
                 break;
             }
             let mut total_lines_guard = self.total_lines.lock()?;
             *total_lines_guard += 1;
-            
+
             let now = Instant::now();
-            
+
             if let Some(re) = &self.regex {
                 match re.captures_iter(&buffer).next() {
                     Some(cap) => {
                         let delta = now.duration_since(last_time);
                         last_time = now;
 
-                        self.tx.send(TimeSnapshot { delta: delta, elapsed: now.duration_since(self.start_time) })?;
+                        self.tx.send(TimeSnapshot {
+                            delta: delta,
+                            elapsed: now.duration_since(self.start_time),
+                        })?;
 
                         let mut total_matches_guard = self.total_matches.lock().unwrap();
                         *total_matches_guard += 1;
-                        
-                        let line = String::from(buffer.trim().replace(&cap[0], &format!("{}", &cap[0].red())));
-                        let output = self.annotator.format_line(&line, &now.duration_since(self.start_time), &delta);
+
+                        let line = String::from(
+                            buffer
+                                .trim()
+                                .replace(&cap[0], &format!("{}", &cap[0].red())),
+                        );
+                        let output = self.annotator.format_line(
+                            &line,
+                            &now.duration_since(self.start_time),
+                            &delta,
+                        );
                         println!("{}", output);
-                    },
+                    }
                     None => {}
                 }
             } else {
                 let delta = now.duration_since(last_time);
                 last_time = now;
 
-                self.tx.send(TimeSnapshot { delta: delta, elapsed: now.duration_since(self.start_time) })?;
-                
+                self.tx.send(TimeSnapshot {
+                    delta: delta,
+                    elapsed: now.duration_since(self.start_time),
+                })?;
+
                 let line = String::from(buffer.trim());
-                let output = self.annotator.format_line(&line, &now.duration_since(self.start_time), &delta);
+                let output =
+                    self.annotator
+                        .format_line(&line, &now.duration_since(self.start_time), &delta);
                 println!("{}", output);
             }
         }
@@ -221,14 +259,28 @@ impl TimelnContext {
     pub fn summarize_and_plot(&self) -> Result<(), TimelnError> {
         let now = Instant::now();
         let total_lines_final = self.total_lines.lock()?;
-        let total_matches_final= self.total_matches.lock()?;
-        println!("{}", self.summarizer.summarize(*total_lines_final, *total_matches_final, &now.duration_since(self.start_time), &**self.annotator.time_format));
+        let total_matches_final = self.total_matches.lock()?;
+        println!(
+            "{}",
+            self.summarizer.summarize(
+                *total_lines_final,
+                *total_matches_final,
+                &now.duration_since(self.start_time),
+                &**self.annotator.time_format
+            )
+        );
 
         if self.plot {
             let rx_lock = self.rx.lock()?;
             let durations: Vec<_> = rx_lock.try_iter().collect();
-            let deltas: Vec<f64> = durations.iter().map(|&dur| dur.delta.as_secs_f64()).collect();
-            let times: Vec<f64> = durations.iter().map(|&dur| dur.elapsed.as_secs_f64()).collect();
+            let deltas: Vec<f64> = durations
+                .iter()
+                .map(|&dur| dur.delta.as_secs_f64())
+                .collect();
+            let times: Vec<f64> = durations
+                .iter()
+                .map(|&dur| dur.elapsed.as_secs_f64())
+                .collect();
             plot_deltas(&deltas, "deltas.svg")?;
             plot_times(&times, "times.svg")?;
         }
@@ -262,7 +314,13 @@ mod tests {
         };
         let context = TimelnContext::new(opt).unwrap();
         let duration = Duration::from_secs(1);
-        assert!(context.tx.send(TimeSnapshot { delta: duration, elapsed: duration }).is_ok());
+        assert!(context
+            .tx
+            .send(TimeSnapshot {
+                delta: duration,
+                elapsed: duration
+            })
+            .is_ok());
     }
 
     #[test]
@@ -274,7 +332,13 @@ mod tests {
         };
         let context = TimelnContext::new(opt).unwrap();
         let duration = Duration::from_secs(1);
-        context.tx.send(TimeSnapshot { delta: duration, elapsed: duration }).unwrap();
+        context
+            .tx
+            .send(TimeSnapshot {
+                delta: duration,
+                elapsed: duration,
+            })
+            .unwrap();
         let rx_lock = context.rx.lock().unwrap();
         assert_eq!(rx_lock.try_recv().unwrap().delta, duration);
     }
@@ -287,7 +351,9 @@ mod tests {
             plot: false,
         };
         let mut context = TimelnContext::new(opt).unwrap();
-        let test_data = TestReadData { data: std::io::Cursor::new("test\n".to_string()) };
+        let test_data = TestReadData {
+            data: std::io::Cursor::new("test\n".to_string()),
+        };
         context.stdin = Box::new(test_data);
         assert!(context.run().is_ok());
     }
