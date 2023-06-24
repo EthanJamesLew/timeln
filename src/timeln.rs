@@ -1,6 +1,68 @@
-//! The `timeln` module provides tools to annotate and summarize the time between each line of input.
-//! It is useful for profiling log files or other streams of data.
-//! You can use the `TimelnContext` struct to create a new instance, read and annotate the lines, and then summarize and plot the data.
+//! This module provides the `TimelnContext` struct and related types for running the timeln module.
+//!
+//! The `TimelnContext` struct is the main context for executing the timeln functionality. It holds the state of the input and the options for processing the input. The module also defines the `TimeSnapshot` struct, which represents the information collected at each line.
+//!
+//! # Usage
+//!
+//! To use the timeln functionality, create a `TimelnContext` instance with the desired options using the `new` method. Then, call the `run` method to start the main loop of reading from stdin, annotating the lines, and sending the duration to the receiver. Finally, you can call the `summarize_and_plot` method to print a summary of the results and optionally plot the data.
+//!
+//! ## Example
+//!
+//! ```
+//! use crate::timeln::{TimelnContext, TimeSnapshot};
+//! use crate::argopt::TimelnOpt;
+//! use crate::reader::StdinReadData;
+//! use std::time::Duration;
+//!
+//! let opt = TimelnOpt {
+//!     color: false,
+//!     regex: None,
+//!     plot: false,
+//! };
+//!
+//! let mut context = TimelnContext::new(opt).unwrap();
+//!
+//! // Override the default stdin reader with a custom reader
+//! let custom_reader = StdinReadData { /* custom reader implementation */ };
+//! context.stdin = Box::new(custom_reader);
+//!
+//! // Run the timeln module
+//! context.run().unwrap();
+//!
+//! // Send a duration to the receiver
+//! let duration = Duration::from_secs(1);
+//! context.tx.send(TimeSnapshot { delta: duration, elapsed: duration }).unwrap();
+//!
+//! // Receive and process the duration
+//! let rx_lock = context.rx.lock().unwrap();
+//! let received_snapshot = rx_lock.try_recv().unwrap();
+//! // ...
+//!
+//! // Print a summary and plot the data
+//! context.summarize_and_plot().unwrap();
+//! ```
+//!
+//! # Testing
+//!
+//! The module includes unit tests for the `TimelnContext` struct and its methods. The tests cover the creation of a new context, sending and receiving durations, and running the main loop with test data. These tests ensure the correctness and functionality of the timeln module.
+//!
+//! Note: The `TimelnContext` struct and related types are intended for demonstration purposes and may require additional error handling and customization for your application's specific needs.
+//!
+//! Note: The example and test code snippets assume the existence of certain types, such as `TimelnOpt`, `StdinReadData`, and `TimeSnapshot`. Please adjust the code according to your project structure and dependencies.
+//!
+//! # Dependencies
+//!
+//! This module relies on several external dependencies:
+//! - `std::io::{self}`: Provides input/output functionality.
+//! - `std::time::{Instant, Duration}`: Enables time-related operations and measurements.
+//! - `colored::*`: Facilitates text coloring for line annotations.
+//! - `regex::Regex`: Supports regular expression matching for line filtering.
+//! - `std::sync::{Arc, Mutex}`: Provides synchronization primitives for multi-threaded environments.
+//! - `std::sync::mpsc::{self, Receiver, Sender}`: Implements message passing between threads.
+//! - `crate::annotator::{TimelnAnnotation, SimpleAnnotator}`: Provides line annotation functionality.
+//! - `crate::formatter::{SecondsFormat}`: Defines formatting options for time durations.
+//! - `crate::summarizer::{Summarizer, SimpleSummarizer}`: Implements result summarization.
+//! - `crate::plot::{plot_deltas, plot_times}`: Offers plotting capabilities for duration
 use std::io::{self};
 use std::time::{Instant, Duration};
 use colored::*;
@@ -22,6 +84,16 @@ use crate::error::{TimelnError};
 pub struct TimeSnapshot {
     delta: Duration,
     elapsed: Duration,
+}
+
+impl TimeSnapshot {
+    /// Create a defualt instance of TimeSnapshot.
+    pub fn default() -> Self {
+        Self {
+            delta: Duration::new(0, 0),
+            elapsed: Duration::new(0, 0),
+        }
+    }
 }
 
 /// The main context struct for running the timeln module.
