@@ -1,7 +1,10 @@
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "timeln", about = "A utility that times lines/regex from stdin.")]
+#[structopt(
+    name = "timeln",
+    about = "A utility that times lines/regex from stdin."
+)]
 pub struct TimelnOpt {
     #[structopt(short = "c", long = "color")]
     pub color: bool,
